@@ -1,4 +1,6 @@
 # -*- coding: UTF-8 -*-
+# pip install aliyun-python-sdk-domain
+# python3 /opt/AliDDNS/AliDDNS.py >> /opt/AliDDNS/AliDDNS.log
 
 import time
 import hmac
@@ -11,14 +13,27 @@ from hashlib import sha1
 from requests import get
 from requests import post
 from random import randint
-from urllib.request import urlopen
-from urllib.request import Request
-from urllib.parse import urlencode
 from json import JSONDecoder
-from urllib.error import HTTPError
 from datetime import datetime
 from urllib.parse import quote
 from base64 import encodestring
+from urllib.error import HTTPError
+from urllib.request import urlopen
+from urllib.request import Request
+from urllib.parse import urlencode
+
+class myWebSite:
+    Aliyun_API_RR = ''					# 指代二级域名
+    Aliyun_API_Type = ''				# 指代记录类型
+    Aliyun_API_Domain = 'tianhao.party'	# 指代完整域名
+
+    def __init__(self, RR = '@', Type = 'A'):
+        self.Aliyun_API_RR = RR
+        self.Aliyun_API_Type = Type
+
+    def getRR(self): return self.Aliyun_API_RR
+    def getType(self): return self.Aliyun_API_Type
+    def getDomain(self): return self.Aliyun_API_Domain
 
 def AliyunSignature(parameters):
     sortedParameters = sorted(parameters.items(), key=lambda parameters: parameters[0])
@@ -29,6 +44,7 @@ def AliyunSignature(parameters):
     h = hmac.new((Aliyun_API_SECRET + "&").encode('ASCII'), stringToSign.encode('ASCII'), sha1)
     signature = encodestring(h.digest()).strip()
     return signature
+
 def CharacterEncode(encodeStr):
     encodeStr = str(encodeStr)
     res = quote(encodeStr.encode('utf-8'), '')
@@ -38,12 +54,8 @@ def CharacterEncode(encodeStr):
     return res
 
 Aliyun_API_URL = "https://alidns.aliyuncs.com/?"
-Aliyun_API_KEYID = ""					# 这里为 Aliyun AccessKey 信息
-Aliyun_API_SECRET = ""					# 这里为 Aliyun AccessKey 信息
-
-Aliyun_API_RR = "www"					# 指代二级域名
-Aliyun_API_Type = "A"					# 指代记录类型
-Aliyun_API_Domain = "example.org"		# 指代完整域名
+Aliyun_API_KEYID = ""											# 这里为 Aliyun AccessKey 信息
+Aliyun_API_SECRET = ""											# 这里为 Aliyun AccessKey 信息
 
 def AliyunAPIPOST(Aliyun_API_Action):
     Aliyun_API_SD = {
@@ -97,11 +109,11 @@ def my_ip_json():
     return strg['YourCurrentIPAddress']
 
 def my_ip_popen():
-    get_ip_method = popen('curl -s pv.sohu.com/cityjson?ie=utf-8')				# 获取外网 IP 地址
-    get_ip_responses = get_ip_method.readlines()[0]								# 读取 HTTP 请求值
-    get_ip_pattern = compile(r'(?<![\.\d])(?:\d{1,3}\.){3}\d{1,3}(?![\.\d])')	# 正则匹配 IP
-    get_ip_value = get_ip_pattern.findall(get_ip_responses)[0]					# 寻找匹配值
-    return get_ip_value															# 返回 IP 地址
+    get_ip_method = popen('curl -s pv.sohu.com/cityjson?ie=utf-8')					# 获取外网 IP 地址
+    get_ip_responses = get_ip_method.readlines()[0]									# 读取 HTTP 请求值
+    get_ip_pattern = compile(r'(?<![\.\d])(?:\d{1,3}\.){3}\d{1,3}(?![\.\d])')		# 正则匹配 IP
+    get_ip_value = get_ip_pattern.findall(get_ip_responses)[0]						# 寻找匹配值
+    return get_ip_value																# 返回 IP 地址
 
 def my_ip_chinanetwork():
     opener = urlopen('http://www.net.cn/static/customercare/yourip.asp')
@@ -114,12 +126,11 @@ def my_ip():
     ip2 = my_ip_json()
     ip3 = my_ip_popen()
     ip4 = my_ip_chinanetwork()
-    # if ip1 == ip2 == ip3 == ip4:
-        # print("[Success] Verified IP Address...")
-        # return ip + random.randint(0,3)					# 开个玩笑
-    # else:
-        # print("[FAILED] No-Verified IP Address...")
-        # return ip1
+    if ip1 == ip2 == ip3 == ip4:
+        print("[Success] Verified IP Address...")
+        return ip1
+    else:
+        print("[FAILED] No-Verified IP Address...")
     return ip1
 
 def old_ip(Aliyun_API_RecordID):
@@ -131,7 +142,7 @@ def old_ip(Aliyun_API_RecordID):
     result = JSONDecoder().decode(Aliyun_API_Request.text)
     return result['Value']
 
-def add_dns(Aliyun_API_DomainIP):
+def add_dns(Aliyun_API_Domain, Aliyun_API_RR, Aliyun_API_DomainType, Aliyun_API_DomainIP):
     Aliyun_API_Post = AliyunAPIPOST('AddDomainRecord')
     Aliyun_API_Post['DomainName'] = Aliyun_API_Domain
     Aliyun_API_Post['RR'] = Aliyun_API_RR
@@ -148,7 +159,7 @@ def delete_dns(Aliyun_API_RecordID):
     Aliyun_API_Post = urlencode(Aliyun_API_Post)
     Aliyun_API_Request = get(Aliyun_API_URL + Aliyun_API_Post)
 
-def update_dns(Aliyun_API_RecordID, Aliyun_API_Value):
+def update_dns(Aliyun_API_RecordID, Aliyun_API_RR, Aliyun_API_Type, Aliyun_API_Value):
     Aliyun_API_Post = AliyunAPIPOST('UpdateDomainRecord')
     Aliyun_API_Post['RecordId'] = Aliyun_API_RecordID
     Aliyun_API_Post['RR'] = Aliyun_API_RR
@@ -171,29 +182,36 @@ def send_mail(content):
         "https://api.mailgun.net/v3/example.org/messages",
         auth=("api", "key-"),
         data={"from": "Your Name <me@mail.example.org>",
-            "to": ["i@example.org", "admin@example.org"],
-            "subject": "[Python Report] IP update from ISP",
-            "text": content})
+              "to": ["me@example.org", "admin@example.org"],
+              "subject": "[Python Report] IP update from ISP",
+              "text": content})
 
 def get_time():
     return "[" + time.strftime('#%y%m%d-%H:%M', time.localtime(time.time())) + "]"
 
+myAliyunDDNS = []
+myAliyunDDNS.append(myWebSite('', 'A'))						# 输入第一个二级域名
+myAliyunDDNS.append(myWebSite('', 'A'))						# 输入第二个二级域名
 rc_value = my_ip()
-rc_record_id = check_record_id(Aliyun_API_RR, Aliyun_API_Domain);		# 获取记录信息
 
-tips = get_time()
-if rc_record_id < 0:							# 若接受失败数值
-    add_dns(rc_value)							# 添加 DNS　解析记录
-    tips += " DNS Record was added, value [" + rc_value + "]."
-else:
-    rc_value_old = old_ip(rc_record_id)
-    if rc_value == rc_value_old:				# 检查 IP 是否匹配
-        tips += " Same DNS Record..."			# 跳过 DNS 更新
+for myWebsite in myAliyunDDNS:
+    tips = get_time()
+    rc_rr = myWebsite.getRR()
+    rc_type = myWebsite.getType()
+    rc_domain = myWebsite.getDomain()
+    rc_record_id = check_record_id(rc_rr, rc_domain);			# 获取记录信息
+
+    if rc_record_id < 0:										# 若接受失败数值
+        add_dns(rc_domain, rc_rr, rc_type, rc_value)			# 添加 DNS　解析记录
+        tips += " DNS Record[" + rc_rr + "] was added, value [" + rc_value + "]."
     else:
-        # delete_dns(rc_record_id)				# 删除 DNS 解析
-        # add_dns(rc_record_id)					# 新增 DNS 解析
-        update_dns(rc_record_id, rc_value)		# 更新 DNS 解析
-        tips += " DNS Record was updated from [" + rc_value_old + "] to [" + rc_value + "]."
-        send_mail(tips)
-
-print(tips)
+        rc_value_old = old_ip(rc_record_id)
+        if rc_value == rc_value_old:							# 检查 IP 是否匹配
+            tips += " Same DNS Record[" + rc_rr + "]..."		# 跳过 DNS 更新
+        else:
+            # delete_dns(rc_record_id)							# 删除 DNS 解析
+            # add_dns(rc_domain, rc_rr, rc_type, rc_value)		# 新增 DNS 解析
+            update_dns(rc_record_id, rc_rr, rc_type, rc_value)	# 更新 DNS 解析
+            tips += " DNS Record[" + rc_rr + "] was updated from [" + rc_value_old + "] to [" + rc_value + "]."
+            send_mail(tips)
+    print(tips)
